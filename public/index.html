@@ -9,26 +9,79 @@
     <h1>Rocketium Assignment</h1>
     <textarea id="assignmentArea" placeholder="..."></textarea>
     <button id="testWebSocket">Test Socket</button>
+
+    <script>
+        const textArea = document.getElementById("assignmentArea");
+        const ws = new WebSocket("ws://localhost:5000");
+        const testWebSocketButton = document.getElementById("testWebSocket");
+
+        // Client state
+        const areaState = {
+            text: "",
+            lock: false,
+            hasLock: false,
+        };
+
+        ws.onopen = () => console.log("Socket Connected to the server");
+
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            console.log(`Socket Message: ${JSON.stringify(msg)}`);
+
+            if (msg.type === 'initial') {
+                // Initialize text and lock status
+                textArea.value = msg.text;
+                textArea.disabled = msg.lock;
+                areaState.lock = msg.lock; // Update local state
+                areaState.text = msg.text;  // Update local state
+            }
+
+            if (msg.type === 'text') {
+                // Update text content in real-time
+                if (!areaState.hasLock) textArea.value = msg.text;
+            }
+
+            if (msg.type === 'lock' && !areaState.hasLock) {
+                // Lock or unlock the text area
+                textArea.disabled = msg.locked;
+                areaState.lock = msg.locked; // Update local state
+            }
+        };
+
+        // Request lock on focus
+        textArea.addEventListener("focus", () => {
+          console.log("Focus event triggered");
+          if (!areaState.hasLock) {
+              ws.send(JSON.stringify({ type: 'lock' }));
+              areaState.hasLock = true;
+          }
+        });
+
+        // Send text changes
+        textArea.addEventListener("input", () => {
+          console.log("Input event triggered")
+          if (areaState.hasLock) {
+              ws.send(JSON.stringify({ type: 'text', text: textArea.value }));
+          }
+        });
+
+        // Release lock on blur
+        textArea.addEventListener("blur", () => {
+          console.log("Blur event triggered")
+          if (areaState.hasLock) {
+              ws.send(JSON.stringify({ type: 'unlock' }));
+              areaState.hasLock = false;
+          }
+        });
+
+        // Check WebSocket connection status
+        testWebSocketButton.addEventListener("click", async () => {
+            const response = await fetch('/check-connection');
+            const data = await response.json();
+            console.log(`API Response: ${JSON.stringify(data)}`);
+        });
+
+        ws.onclose = () => console.log("Socket Disconnected from the server");
+    </script>
 </body>
-<script>
-  const textArea = document.getElementById("assignmentArea");
-  const ws = new WebSocket("ws://localhost:5000");
-  const testWebSocketButton = document.getElementById("testWebSocket");
-
-  ws.onopen = () => console.log("Socket Connected to the server");
-
-  ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-      console.log(`Socket Message: ${JSON.stringify(msg)}`);
-  };
-
-  // Check WebSocket connection status
-  testWebSocketButton.addEventListener("click", async () => {
-    const response = await fetch('/check-connection');
-    const data = await response.json();
-    console.log(`API Response: ${JSON.stringify(data)}`);
-  });
-
-  ws.onclose = () => console.log("Socket Disconnected from the server");
-</script>
 </html>
