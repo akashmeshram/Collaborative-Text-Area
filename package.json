@@ -1,0 +1,11 @@
+{
+  "name": "rocketium",
+  "version": "1.0.0",
+  "description": "text area",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Akash Meshram",
+  "license": "MIT"
+}
