@@ -8,5 +8,27 @@
 <body>
     <h1>Rocketium Assignment</h1>
     <textarea id="assignmentArea" placeholder="..."></textarea>
+    <button id="testWebSocket">Test Socket</button>
 </body>
+<script>
+  const textArea = document.getElementById("assignmentArea");
+  const ws = new WebSocket("ws://localhost:5000");
+  const testWebSocketButton = document.getElementById("testWebSocket");
+
+  ws.onopen = () => console.log("Socket Connected to the server");
+
+  ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      console.log(`Socket Message: ${JSON.stringify(msg)}`);
+  };
+
+  // Check WebSocket connection status
+  testWebSocketButton.addEventListener("click", async () => {
+    const response = await fetch('/check-connection');
+    const data = await response.json();
+    console.log(`API Response: ${JSON.stringify(data)}`);
+  });
+
+  ws.onclose = () => console.log("Socket Disconnected from the server");
+</script>
 </html>
