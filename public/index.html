@@ -4,83 +4,98 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rocketium</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sakura.css/css/sakura.css" type="text/css">
 </head>
 <body>
     <h1>Rocketium Assignment</h1>
-    <textarea id="assignmentArea" placeholder="..."></textarea>
-    <button id="testWebSocket">Test Socket</button>
+    <textarea id="assignmentArea" placeholder="Add text here ..." rows="20"></textarea>
+    <div>
+      <h4>Messages</h4>
+      <button id="testWebSocket">Test Socket</button>
+      <textarea id="messageArea" placeholder="Messages" rows="10" disabled></textarea>
+    </div>
 
     <script>
-        const textArea = document.getElementById("assignmentArea");
-        const ws = new WebSocket("ws://localhost:5000");
-        const testWebSocketButton = document.getElementById("testWebSocket");
+        const textArea = document.getElementById("assignmentArea"); // Get the textarea element
+        const ws = new WebSocket("ws://localhost:5000"); // Create a WebSocket connection
+        const testWebSocketButton = document.getElementById("testWebSocket"); // Get the button element
 
-        // Client state
+        // Client state to manage text and lock status
         const areaState = {
             text: "",
             lock: false,
             hasLock: false,
         };
 
+        const printToMessageArea = (message) => {
+          const messageArea = document.getElementById("messageArea");
+          messageArea.value += `${message}\n`;
+        }
+
+        // Log when the WebSocket connection is open
         ws.onopen = () => console.log("Socket Connected to the server");
 
+        // Handle incoming messages from the server
         ws.onmessage = (event) => {
-            const msg = JSON.parse(event.data);
-            console.log(`Socket Message: ${JSON.stringify(msg)}`);
+            const msg = JSON.parse(event.data); // Parse the incoming message
+            printToMessageArea(`Socket Message: ${JSON.stringify(msg)}`);
 
+            // Handle initial state message
             if (msg.type === 'initial') {
-                // Initialize text and lock status
-                textArea.value = msg.text;
-                textArea.disabled = msg.lock;
+                textArea.value = msg.text; // Set the textarea value
+                textArea.disabled = msg.lock; // Lock or unlock the textarea
                 areaState.lock = msg.lock; // Update local state
-                areaState.text = msg.text;  // Update local state
+                areaState.text = msg.text; // Update local state
             }
 
+            // Update text content in real-time
             if (msg.type === 'text') {
-                // Update text content in real-time
-                if (!areaState.hasLock) textArea.value = msg.text;
+                if (!areaState.hasLock) textArea.value = msg.text; // Update only if not locked
             }
 
+            // Handle lock/unlock messages
             if (msg.type === 'lock' && !areaState.hasLock) {
-                // Lock or unlock the text area
-                textArea.disabled = msg.locked;
+                textArea.disabled = msg.locked; // Disable textarea if locked
                 areaState.lock = msg.locked; // Update local state
             }
         };
 
-        // Request lock on focus
+        // Request lock on textarea focus
         textArea.addEventListener("focus", () => {
-          console.log("Focus event triggered");
-          if (!areaState.hasLock) {
-              ws.send(JSON.stringify({ type: 'lock' }));
-              areaState.hasLock = true;
-          }
+            // console.log("Focus event triggered");
+            if (!areaState.hasLock) {
+                ws.send(JSON.stringify({ type: 'lock' })); // Send lock request to the server
+                areaState.hasLock = true; // Mark that the client has the lock
+            }
         });
 
-        // Send text changes
+        // Send text changes to the server
         textArea.addEventListener("input", () => {
-          console.log("Input event triggered")
-          if (areaState.hasLock) {
-              ws.send(JSON.stringify({ type: 'text', text: textArea.value }));
-          }
+            // console.log("Input event triggered");
+            if (areaState.hasLock) {
+                ws.send(JSON.stringify({ type: 'text', text: textArea.value })); // Send updated text to the server
+            }
         });
 
-        // Release lock on blur
+        // Release lock on textarea blur
         textArea.addEventListener("blur", () => {
-          console.log("Blur event triggered")
-          if (areaState.hasLock) {
-              ws.send(JSON.stringify({ type: 'unlock' }));
-              areaState.hasLock = false;
-          }
+            // console.log("Blur event triggered");
+            if (areaState.hasLock) {
+                ws.send(JSON.stringify({ type: 'unlock' })); // Send unlock request to the server
+                areaState.hasLock = false; // Mark that the client no longer has the lock
+            }
         });
 
         // Check WebSocket connection status
         testWebSocketButton.addEventListener("click", async () => {
-            const response = await fetch('/check-connection');
-            const data = await response.json();
-            console.log(`API Response: ${JSON.stringify(data)}`);
+            const response = await fetch('/check-connection'); // Send a request to the server
+            const data = await response.json(); // Parse the response
+            ws.send(JSON.stringify({ type: 'test' }));
+            printToMessageArea(`API Response: ${JSON.stringify(data)}`); // Log the response
         });
 
+        // Log when the WebSocket connection is closed
         ws.onclose = () => console.log("Socket Disconnected from the server");
     </script>
 </body>

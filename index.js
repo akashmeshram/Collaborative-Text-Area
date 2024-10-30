@@ -4,77 +4,81 @@ import WebSocket, { WebSocketServer } from "ws";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 
+// Get the directory name of the current module
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
-const PORT = process.env.PORT || 5000;
+const app = express(); // Create an Express application
+const server = http.createServer(app); // Create an HTTP server
+const wss = new WebSocketServer({ server }); // Create a WebSocket server
+const PORT = process.env.PORT || 5000; // Set the port for the server
 
-// Server State
+// Server state to manage text and lock status
 const areaState = {
     text: "",
     lock: false,
 };
 
-// Serve the static HTML file
+// Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// For server health check
+// Health check endpoint
 app.get("/healthz", (_req, res) => {
-    res.send("OK");
+    res.send("OK"); // Respond with a simple message
 });
 
-// Send test message to WebSocket
+// Endpoint to test WebSocket connection
 app.get("/check-connection", (_req, res) => {
-    // Respond to the client
-    res.send({ status: "success" });
+    res.send({ status: "success" }); // Respond with success status
 });
 
-// WebSocket connection handling
+// Handle WebSocket connections
 wss.on('connection', (ws) => {
     console.log("Client Socket Connected to the server");
+    
+    // Send initial state to the newly connected client
     ws.send(JSON.stringify({ type: 'initial', ...areaState }));
 
+    // Handle incoming messages from the client
     ws.on('message', (message) => {
-        const msg = JSON.parse(message);
+        const msg = JSON.parse(message); // Parse the received message
 
         // Handle lock request
         if (msg.type === 'lock' && !areaState.lock) {
-            areaState.lock = true;
-            ws.active = true;
-            sendSocketMessage({ type: 'lock', locked: true });
-        }
-
+            areaState.lock = true; // Lock the area
+            ws.active = true; // Mark this WebSocket as active
+            sendSocketMessage({ type: 'lock', locked: true }); // Notify all clients about the lock
+        } else
         // Handle text changes
         if (msg.type === 'text' && ws.active) {
-            areaState.text = msg.text;
-            sendSocketMessage({ type: 'text', text: areaState.text });
-        }
-
+            areaState.text = msg.text; // Update the text in the server state
+            sendSocketMessage({ type: 'text', text: areaState.text }); // Notify all clients about the new text
+        } else
         // Handle unlock request on blur
         if (msg.type === 'unlock' && ws.active) {
-            areaState.lock = false;
-            ws.active = false;  // Mark this client as inactive
-            sendSocketMessage({ type: 'lock', locked: false });
+            areaState.lock = false; // Unlock the area
+            ws.active = false; // Mark this WebSocket as inactive
+            sendSocketMessage({ type: 'lock', locked: false }); // Notify all clients about the unlock
+        } else {
+          sendSocketMessage({type: "message", ...msg})
         }
     });
 
+    // Handle WebSocket closure
     ws.on('close', () => {
-      console.log("Client Socket Disconnected from the server");
+        console.log("Client Socket Disconnected from the server");
     });
 });
 
-// Broadcast a message to all connected clients
+// Function to broadcast messages to all connected clients
 function sendSocketMessage(data = {}) {
     wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(data));
+            client.send(JSON.stringify(data)); // Send the data as a JSON string
         }
     });
 }
 
-// Start the server
+// Start the server and listen for incoming requests
 server.listen(PORT, () => {
     console.log(`Server is listening on http://localhost:${PORT}`);
 });
