@@ -18,6 +18,9 @@ const areaState = {
     lock: false,
 };
 
+// Track active clients
+const activeClients = new Set(); // Store active clients
+
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -65,7 +68,15 @@ wss.on('connection', (ws) => {
 
     // Handle WebSocket closure
     ws.on('close', () => {
-        console.log("Client Socket Disconnected from the server");
+      console.log("Client Socket Disconnected from the server");
+      // Check if the disconnected client was active
+      if (ws.active) {
+          activeClients.delete(ws); // Remove from active clients
+          // If no active clients remain, allow the next client to be active
+          if (activeClients.size === 0) {
+              console.log("No active clients left, the next client can take the lock.");
+          }
+      }
     });
 });
 
